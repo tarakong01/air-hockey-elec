@@ -29,7 +29,6 @@ float xvel = 0;
 float yvel = 0;
 
 bool newData = false;
-// HardwareSerial Serial1(PA10, PA9);
 
 // Variable to show the program is running
 uint32_t loop_counter = 0;
@@ -56,7 +55,7 @@ void set_up_display()
 
 void setup() {
   // put your setup code here, to run once:
-    Serial1.begin(115200);
+    Serial1.begin(250000);
     
     init_pins();
     set_up_display();
@@ -67,9 +66,6 @@ void drive_motor() {
   pwm_start(PWM, PWM_FREQ_HZ, duty_cycle, RESOLUTION_10B_COMPARE_FORMAT);
   // put your main code here, to run repeatedly:
   digitalWrite(DIR, LOW); // LOW = A->B, HIGH = B->A as indicated on Cytron
-  // delay(2000);
-  // digitalWrite(DIR, HIGH);
-  // delay(2000);
 }
 
 void display_data() {
@@ -82,7 +78,6 @@ void display_data() {
   display_handler.println(fwd);
   display_handler.print(duty_cycle);
   display_handler.display();
-  Serial1.println(analog_val);
 }
 
 void recvWithStartEndMarkers() {
@@ -168,9 +163,9 @@ void read_vsense() {
 
 void loop() {
   drive_motor();
-  display_data();
-
   read_vsense();
+  display_data();
+  Serial1.println(analog_val);
 
   // recvWithStartEndMarkers();
   // if (newData == true) {

@@ -6,7 +6,7 @@
 #define CSA_GND PA3
 #define EXT_DUTY_CYCLE PA5
 
-const int PWM_FREQ_HZ = 100000;
+const int PWM_FREQ_HZ = 10000;
 // const int DUTY_CYCLE = 50;
 const int DUTY_CYCLE_CONVERSION = 1024;
 const double VREF = 3.3;
