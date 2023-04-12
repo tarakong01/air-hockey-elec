@@ -5,38 +5,49 @@
 
 Adafruit_SSD1306 display_handler(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// -------------------------------------------
+// timer interrupt example
+HardwareTimer timer(TIM1);
+bool ledOn = false;
+
+void OnTimer1Interrupt() {
+    ledOn = !ledOn;
+    digitalWrite(PC13, ledOn ? HIGH : LOW);
+}
+// -------------------------------------------
+
 // Variable to store the value of the analog in pin.
 volatile uint16_t value = 0;
 volatile uint32_t duty_cycle = 0;
 volatile double analog_val = 0;
 volatile bool fwd = false;
 
-// Example 5 - Receive with start- and end-markers combined with parsing
-
-const byte numChars = 128;
-char receivedChars[numChars];
-char tempChars[numChars];        // temporary array for use when parsing
-
-// variables to hold the parsed data
-int length = 0;
-int receivedLength = 0;
-// char payloadFromPC[numChars] = {0};
-// char tempPayload[numChars] = {0};
-float checksum = 0;
-float xpos = 0;
-float ypos = 0;
-float xvel = 0;
-float yvel = 0;
-
-bool newData = false;
+// Variables for encoders
+volatile int master_count = 0; // universal count
 
 // Variable to show the program is running
 uint32_t loop_counter = 0;
 
+void encoderIRQ() {
+  loop_counter = 0;
+  // add 1 to count for CW
+  if (digitalRead(ENC_1) && !digitalRead(ENC_2)) {
+    master_count++ ;
+  }
+  // subtract 1 from count for CCW
+  else if (digitalRead(ENC_1) && digitalRead(ENC_2)) {
+    master_count-- ;
+  } 
+}
 
 void init_pins() {
   pinMode(PWM, OUTPUT);
   pinMode(DIR, OUTPUT);
+  pinMode(EXT_DUTY_CYCLE, INPUT);
+  pinMode(V_SENSE, INPUT);
+  pinMode(CSA_GND, INPUT);
+  pinMode(ENC_1, INPUT);
+  pinMode(ENC_2, INPUT);
   digitalWrite(PWM, LOW);
   digitalWrite(DIR, LOW);
 }
@@ -59,6 +70,17 @@ void setup() {
     
     init_pins();
     set_up_display();
+
+    attachInterrupt(digitalPinToInterrupt(ENC_1), encoderIRQ, RISING);
+
+    // timer interrupt example
+    // pinMode(PC13, OUTPUT);
+    // Configure timer
+    // timer.setPrescaleFactor(2564); // Set prescaler to 2564 => timer frequency = 168MHz/2564 = 65522 Hz (from prediv'd by 1 clocksource of 168 MHz)
+    // timer.setOverflow(32761); // Set overflow to 32761 => timer frequency = 65522 Hz / 32761 = 2 Hz
+    // timer.attachInterrupt(OnTimer1Interrupt);
+    // timer.refresh(); // Make register changes take effect
+    // timer.resume(); // Start
 }
 
 void drive_motor() {
@@ -72,83 +94,20 @@ void display_data() {
   //Display the read signal's raw value (12 bit: 0 to 4096)
   display_handler.clearDisplay();
   display_handler.setCursor(0, 0);
-  display_handler.println(loop_counter++);
+  display_handler.println(loop_counter);
+
+  // Display encoder value
+  display_handler.print("Encoder count: ");
+  display_handler.println(master_count);
+
   display_handler.println(analog_val);
+
   display_handler.print("Forward: ");
   display_handler.println(fwd);
+
   display_handler.print(duty_cycle);
+
   display_handler.display();
-}
-
-void recvWithStartEndMarkers() {
-    static bool recvInProgress = false;
-    static byte ndx = 0;
-    char startMarker = '<';
-    char endMarker = '>';
-    char rc;
-
-    while (Serial1.available() > 0 && newData == false) {
-        rc = Serial1.read();
-
-        if (recvInProgress == true) {
-            if (rc == startMarker) {
-                ndx = 0;
-            }
-            else if (rc != endMarker) {
-                receivedChars[ndx] = rc;
-                ndx++;
-                if (ndx >= numChars) {
-                    ndx = numChars - 1;
-                }
-            }
-            else {
-                receivedChars[ndx] = '\0'; // terminate the string
-                receivedLength = ndx;
-                recvInProgress = false;
-                ndx = 0;
-                newData = true;
-            }
-        }
-
-        else if (rc == startMarker) {
-            recvInProgress = true;
-        }
-    }
-}
-
-void parseData() {      // split the data into its parts
-
-    char * strtokIndx; // this is used by strtok() as an index
-
-    strtokIndx = strtok(tempChars, ",");      // get the first part - the string
-    length = atoi(strtokIndx);
-    // strcpy(length, strtokIndx); // copy it to messageFromPC
- 
-    // strtokIndx = strtok(NULL, "],"); // this continues where the previous call left off
-    // strcpy(payloadFromPC, strtokIndx);
-
-    strtokIndx = strtok(NULL, ",");
-    xpos = atof(strtokIndx);
-
-    strtokIndx = strtok(NULL, ",");
-    ypos = atof(strtokIndx);
-
-    strtokIndx = strtok(NULL, ",");
-    xvel = atof(strtokIndx);
-
-    strtokIndx = strtok(NULL, ",");
-    yvel = atof(strtokIndx);
-
-    strtokIndx = strtok(NULL, ",");
-    checksum = atof(strtokIndx);
-}
-
-bool checkLength() {
-    return (length == receivedLength);
-}
-
-bool checkSum() {
-    return (checksum == xpos + ypos + xvel + yvel);
 }
 
 void read_vsense() {
@@ -165,24 +124,6 @@ void loop() {
   drive_motor();
   read_vsense();
   display_data();
-  Serial1.println(analog_val);
-
-  // recvWithStartEndMarkers();
-  // if (newData == true) {
-  //   strcpy(tempChars, receivedChars);
-  //       // this temporary copy is necessary to protect the original data
-  //       //   because strtok() used in parseData() replaces the commas with \0
-  //   // strcpy(tempPayload, payloadFromPC);
-  //   parseData();
-  //   if (checkLength() && checkSum()) {
-  //       // Serial1.println(1);
-  //       Serial1.print("ACK");
-  //       Serial1.println(loop_counter);
-  //   } else {
-  //       // Serial1.println(24);
-  //       Serial1.println(receivedChars);
-  //   }
-  //   // showParsedData();
-  //   newData = false;
-  // }
+  ++loop_counter;
+  // Serial1.println(analog_val);
 }
