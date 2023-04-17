@@ -21,7 +21,9 @@ void OnTimer1Interrupt() {
 }
 
 void OnTimer2Interrupt() {
-  calc_current = true;
+  if (calc_current == false) {
+    calc_current = true;
+  }
   // send_current = true;
 }
 // -------------------------------------------
@@ -120,12 +122,10 @@ void loop() {
   read_vsense();
   display_data();
   if (calc_current) {
+    calc_current = false;
     double v_avg = running_voltage[0] / running_voltage[1];
     double i_avg = v_avg/GAIN/R_SENSE;
-    // current_str += String(i_avg) + " ";
-    calc_current = false;
-    Serial1.println(String(i_avg-3.30));
-
+    Serial1.println(i_avg-3.30);
     running_voltage[0] = 0;
     running_voltage[1] = 0;
   }

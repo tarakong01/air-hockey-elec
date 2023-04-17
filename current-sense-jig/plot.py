@@ -8,7 +8,7 @@ import serial
 
 #initialize serial port
 ser = serial.Serial()
-ser.port = 'COM3' #Arduino serial port
+ser.port = 'COM4' #Arduino serial port
 ser.baudrate = 250000
 ser.timeout = 50 #specify timeout when using readline()
 ser.open()
@@ -28,16 +28,17 @@ def animate(i, xs, ys, count):
     
     #Aquire and parse data from serial port
     line=ser.readline()
+    # print(line)
     line_as_list = line.split(b'\r\n')
     print(line_as_list)
-    str = line_as_list[0].decode('ascii').strip()
+    str = line_as_list[0].decode('utf-8')
     # print(str)
-    # val = float(str)
+    val = float(str)
 	
 	# # Add x and y to lists
-    # xs.append(count[0])
-    # ys.append(val)
-    # count[0] += 1
+    xs.append(count[0])
+    ys.append(val)
+    count[0] += 1
 
     # Limit x and y lists to 20 items
     #xs = xs[-20:]
@@ -60,5 +61,5 @@ def animate(i, xs, ys, count):
 #     #plt.axis([1, 100, 0, 1.1]) #Use for 100 trial demo
 
 # # Set up plot to call animate() function periodically
-ani = animation.FuncAnimation(fig, animate, frames=100, fargs=(xs, ys, count), interval=20)
+ani = animation.FuncAnimation(fig, animate, frames=100, fargs=(xs, ys, count), interval=10)
 plt.show()
